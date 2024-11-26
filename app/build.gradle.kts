@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.webrtc)
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.recyclerview)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

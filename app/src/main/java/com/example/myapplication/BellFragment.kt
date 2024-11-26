@@ -6,12 +6,16 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.exchange.SocketExchange
 import com.example.myapplication.exchange.WHIPExchange
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 class BellFragment: Fragment() {
+    private lateinit var videoViewAdapter: VideoViewAdapter
+    private lateinit var recyclerView: RecyclerView
+
     private lateinit var whipExchange: WHIPExchange
     private lateinit var socketExchange: SocketExchange
     companion object {
