@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">My Application</string>
+    <string name="admin">Admin</string>
+    <string name="bell">Bell</string>
+    <string name="streamNameButton">Call</string>
+    <string name="admin_input">Admin</string>
+    <string name="bell_input">Bell</string>
+    <string name="connect_button">Connect</string>
+    <string name="connection_name_input">Enter Your Identity</string>
+</resources>
