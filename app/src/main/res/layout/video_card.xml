@@ -9,7 +9,7 @@
     <!-- SurfaceViewRenderer for video -->
     <org.webrtc.SurfaceViewRenderer
         android:id="@+id/surfaceViewRenderer"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="200dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -25,7 +25,7 @@
         android:text="Name"
         android:textColor="#FFFFFF"
         android:textSize="14sp"
-        app:layout_constraintBottom_toBottomOf="@+id/surfaceViewRenderer"
+        app:layout_constraintTop_toTopOf="@+id/surfaceViewRenderer"
         app:layout_constraintStart_toStartOf="@+id/surfaceViewRenderer" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

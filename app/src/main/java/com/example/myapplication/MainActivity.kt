@@ -13,6 +13,10 @@ import androidx.fragment.app.FragmentTransaction
 import androidx.core.view.ViewCompat
 import android.view.View
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
 
 
 class MainActivity : AppCompatActivity() {
@@ -20,6 +24,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var inputField: EditText
     private lateinit var radioGroup: RadioGroup
     private lateinit var centeredBox: LinearLayout
+
+    private val CAMERA_PERMISSION_REQUEST_CODE = 1
+    private val MICROPHONE_PERMISSION_REQUEST_CODE = 2
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +48,7 @@ class MainActivity : AppCompatActivity() {
             // Return insets to allow the system to handle them
             insets
         }
+        checkPermissions()
 
         connectButton = findViewById(R.id.connectButton)
         inputField = findViewById(R.id.inputField)
@@ -91,6 +99,20 @@ class MainActivity : AppCompatActivity() {
             fragmentTransaction.commit()  // Commit the transaction
         }
 
+    }
+
+    private fun checkPermissions() {
+        val cameraPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+        val microphonePermission = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+
+        // If both permissions are not granted, request them
+        if (cameraPermission != PackageManager.PERMISSION_GRANTED || microphonePermission != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
+                CAMERA_PERMISSION_REQUEST_CODE
+            )
+        }
     }
 
 

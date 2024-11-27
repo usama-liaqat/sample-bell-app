@@ -1,6 +1,5 @@
 package com.example.myapplication.exchange
 
-import com.example.myapplication.webrtc.RTCIceServer
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -18,7 +17,7 @@ class WHEPExchange(private val baseURI: String, private val sid: String) {
         val mediaType = "application/sdp".toMediaType()
         val body = offerSdp.toRequestBody(mediaType)
         val request = Request.Builder()
-            .url("$baseURI/$sid/whip")
+            .url("$baseURI/$sid/whep")
             .post(body)
             .build()
 

@@ -7,51 +7,51 @@ import androidx.recyclerview.widget.RecyclerView
 import org.webrtc.EglBase
 import org.webrtc.SurfaceViewRenderer
 import android.view.ViewGroup
+import org.webrtc.VideoTrack
 
 
 
-data class SurfaceItem(
+data class VideoItem(
     val name: String,
-    val renderer: SurfaceViewRenderer? = null
+    val videoTrack: VideoTrack? = null,
+    val mirror: Boolean = false
+
 )
 
-class VideoViewAdapter(private val items: MutableList<SurfaceItem>) :
-    RecyclerView.Adapter<VideoViewAdapter.SurfaceViewHolder>() {
+class VideoViewAdapter(private val items: MutableList<VideoItem>) :
+    RecyclerView.Adapter<VideoViewAdapter.ViewHolder>() {
 
-    inner class SurfaceViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val surfaceViewRenderer: SurfaceViewRenderer = view.findViewById(R.id.surfaceViewRenderer)
         val overlayName: TextView = view.findViewById(R.id.overlayName)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SurfaceViewHolder {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.video_card, parent, false)
-        return SurfaceViewHolder(view)
+        return ViewHolder(view)
     }
 
-    override fun onBindViewHolder(holder: SurfaceViewHolder, position: Int) {
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
         holder.overlayName.text = item.name
 
-        val renderer = item.renderer
-        if (renderer != null) {
+        val videoTrack = item.videoTrack
+        if (videoTrack != null) {
             holder.surfaceViewRenderer.init(EglBase.create().eglBaseContext, null)
-            holder.surfaceViewRenderer.setMirror(false)
-
-            // You can bind a video track here if available
-            // For example: renderer.setVideoTrack(videoTrack)
+            holder.surfaceViewRenderer.setMirror(item.mirror)
+            videoTrack.addSink(holder.surfaceViewRenderer)
         }
     }
 
     override fun getItemCount(): Int = items.size
 
-    fun addItem(item: SurfaceItem) {
+    fun addItem(item: VideoItem) {
         items.add(item)
         notifyItemInserted(items.size - 1)
     }
 
     fun removeItem(position: Int) {
-        items[position].renderer?.release()
         items.removeAt(position)
         notifyItemRemoved(position)
     }
@@ -63,8 +63,8 @@ class VideoViewAdapter(private val items: MutableList<SurfaceItem>) :
         }
     }
 
-    fun updateRendererForItem(position: Int, newRenderer: SurfaceViewRenderer?) {
-        items[position] = items[position].copy(renderer = newRenderer)
+    fun updateRendererForItem(position: Int, newVideoTrack: VideoTrack?) {
+        items[position] = items[position].copy(videoTrack = newVideoTrack)
         notifyItemChanged(position)
     }
 }

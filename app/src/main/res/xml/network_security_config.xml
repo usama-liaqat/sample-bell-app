@@ -2,5 +2,6 @@
 <network-security-config>
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">testingserver.irvinei.com</domain>
+        <domain includeSubdomains="true">streaming-gateway.irvinei.com</domain>
     </domain-config>
 </network-security-config>
