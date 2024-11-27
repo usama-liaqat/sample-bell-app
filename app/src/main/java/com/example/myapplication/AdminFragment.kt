@@ -85,7 +85,7 @@ class AdminFragment : Fragment() {
             whepPeer!!.close()
         }
 
-        whepExchange = WHEPExchange(Config.liveBaseURI, bellId)
+        whepExchange = WHEPExchange(Config.LIVE_BASE_URL, bellId)
         whepPeer = WHEPPeer(activity, videoViewAdapter, whepExchange!!, peerConnectionFactory)
         whepPeer!!.connect()
     }

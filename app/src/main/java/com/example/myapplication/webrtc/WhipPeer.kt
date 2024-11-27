@@ -1,20 +1,14 @@
 package com.example.myapplication.webrtc
 
 import android.app.Activity
-import android.app.Application
 import android.util.Log
 import com.example.myapplication.VideoItem
 import com.example.myapplication.VideoViewAdapter
 import com.example.myapplication.exchange.WHIPExchange
 import org.webrtc.AudioTrack
-import org.webrtc.EglBase
-import org.webrtc.HardwareVideoDecoderFactory
-import org.webrtc.HardwareVideoEncoderFactory
 import org.webrtc.IceCandidate
 import org.webrtc.MediaConstraints
 import org.webrtc.PeerConnection
-import org.webrtc.PeerConnection.IceServer
-import org.webrtc.PeerConnectionFactory
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 import org.webrtc.SurfaceTextureHelper
@@ -27,71 +21,61 @@ class WHIPPeer(
     private val videoCapturer: VideoCapturer,
     private val exchange: WHIPExchange,
     private val videoViewAdapter: VideoViewAdapter,
+    private val factory: PeerFactory,
 
     ) {
     private val TAG = "WHIPPeer"
 
-    private val rootEglBase: EglBase = EglBase.create()
-    private val peerConnectionFactory: PeerConnectionFactory by lazy { buildPeerConnectionFactory() }
+
+    private val LOCAL_STREAM_ID = "media_stream_${exchange.sid}"
+    private val LOCAL_AUDIO_TRACK_ID = "audio_track_${exchange.sid}"
+    private val LOCAL_VIDEO_TRACK_ID = "video_track_${exchange.sid}"
+
     private val peerConnection: PeerConnection by lazy { createPeerConnection() }
 
     private var localAudioTrack: AudioTrack? = null
 
     private var localVideoTrack: VideoTrack? = null
 
-    private val localVideoSource by lazy { peerConnectionFactory.createVideoSource(false) }
-    private val localAudioSource by lazy { peerConnectionFactory.createAudioSource(MediaConstraints()) }
+    private val localVideoSource by lazy { factory.peerConnectionFactory.createVideoSource(false) }
+    private val localAudioSource by lazy {
+        factory.peerConnectionFactory.createAudioSource(
+            MediaConstraints()
+        )
+    }
     private val pendingCandidates = arrayListOf<IceCandidate>()
 
 
     init {
-        initPeerConnectionFactory(activity.application)
+        startCapture()
+        initPeerConnection()
     }
 
-    private fun buildPeerConnectionFactory(): PeerConnectionFactory {
-        val videoEncoderFactory = HardwareVideoEncoderFactory(
-            rootEglBase.eglBaseContext, false, true
-        )
-        val supportedCodecs = videoEncoderFactory.supportedCodecs
-        supportedCodecs.forEach { codec ->
-            Log.d("SupportedCodec", "Codec Name: ${codec.name}")
-            codec.params.forEach { (key, value) ->
-                Log.d("SupportedCodec", "  Param: $key = $value")
-            }
-        }
-        val videoDecoderFactory = HardwareVideoDecoderFactory(rootEglBase.eglBaseContext)
-        return PeerConnectionFactory.builder().setVideoEncoderFactory(videoEncoderFactory)
-            .setVideoDecoderFactory(videoDecoderFactory)
-            .setOptions(PeerConnectionFactory.Options().apply {
-                disableEncryption = false
-                disableNetworkMonitor = true
-            }).createPeerConnectionFactory()
-    }
-
-    private fun initPeerConnectionFactory(context: Application) {
-        val options = PeerConnectionFactory.InitializationOptions.builder(context)
-            .setEnableInternalTracer(true).createInitializationOptions()
-        PeerConnectionFactory.initialize(options)
-    }
 
     private fun createPeerConnection(): PeerConnection {
-        return peerConnectionFactory.createPeerConnection(getRTCConfig(),
+        return factory.createPeerConnection(
+            factory.getRTCConfig(),
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(iceCandidate: IceCandidate?) {
                     if (iceCandidate !== null) {
                         addIceCandidate(iceCandidate)
                     }
                 }
-            })!!
+            })
     }
 
     fun initPeerConnection(): PeerConnection {
-        peerConnectionFactory.createAudioSource(MediaConstraints())
-        localAudioTrack =
-            peerConnectionFactory.createAudioTrack(LOCAL_TRACK_ID + "_audio", localAudioSource)
+        localAudioTrack = factory.peerConnectionFactory.createAudioTrack(
+            LOCAL_AUDIO_TRACK_ID,
+            localAudioSource
+        )
 
-        localVideoTrack = peerConnectionFactory.createVideoTrack(LOCAL_TRACK_ID, localVideoSource)
-        val localStream = peerConnectionFactory.createLocalMediaStream(LOCAL_STREAM_ID)
+        localVideoTrack = factory.peerConnectionFactory.createVideoTrack(
+            LOCAL_VIDEO_TRACK_ID,
+            localVideoSource
+        )
+
+        val localStream = factory.peerConnectionFactory.createLocalMediaStream(LOCAL_STREAM_ID)
 
         localStream.addTrack(localVideoTrack)
         localStream.addTrack(localAudioTrack)
@@ -105,29 +89,15 @@ class WHIPPeer(
         return peerConnection
     }
 
-    private fun getRTCConfig(): PeerConnection.RTCConfiguration {
-        return PeerConnection.RTCConfiguration(getIceServers()).apply {
-            sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
-            continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_ONCE
-            bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
-            rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
-            iceTransportsType = PeerConnection.IceTransportsType.ALL
-            enableCpuOveruseDetection = false
-        }
-    }
-
-    private fun getIceServers(): List<IceServer> {
-        // return your ICE server list here (like from signaling server or static)
-        return listOf()
-    }
-
     fun connect() {
         createOffer()
     }
 
     fun startCapture() {
-        val surfaceTextureHelper =
-            SurfaceTextureHelper.create(Thread.currentThread().name, rootEglBase.eglBaseContext)
+        val surfaceTextureHelper = SurfaceTextureHelper.create(
+            Thread.currentThread().name,
+            factory.rootEglBase.eglBaseContext
+        )
         videoCapturer.initialize(surfaceTextureHelper, activity, localVideoSource.capturerObserver)
         videoCapturer.startCapture(1280, 720, 30)
     }
@@ -239,16 +209,6 @@ class WHIPPeer(
     fun close() {
         videoViewAdapter.findAndRemoveItemByName(exchange.sid)
         peerConnection.close()
-        peerConnectionFactory.dispose()
         videoCapturer.stopCapture()
-
-    }
-
-
-    companion object {
-        private const val LOCAL_TRACK_ID = "ARDAMSa0"
-        private const val LOCAL_AUDIO_TRACK_ID = "ARDAMSa0"
-        private const val LOCAL_STREAM_ID = "ARDAMS"
-        private const val VIDEO_TRACK_ID = "ARDAMSv0"
     }
 }

@@ -13,10 +13,13 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.exchange.SocketExchange
 import com.example.myapplication.exchange.WHIPExchange
+import com.example.myapplication.webrtc.PeerFactory
 import com.example.myapplication.webrtc.WHIPPeer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.webrtc.Camera2Enumerator
+import org.webrtc.EglBase
 import org.webrtc.VideoCapturer
 
 
@@ -37,6 +40,9 @@ class BellFragment : Fragment() {
     private lateinit var socketExchange: SocketExchange
     private lateinit var publishButton: Button
 
+    private lateinit var rootEglBase: EglBase
+    private lateinit var peerFactory: PeerFactory
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
@@ -54,27 +60,32 @@ class BellFragment : Fragment() {
         recyclerView.layoutManager = LinearLayoutManager(context)
         recyclerView.adapter = videoViewAdapter
 
+
+        rootEglBase = EglBase.create()
+        peerFactory = PeerFactory(activity, rootEglBase)
+
         videoCapturer = getVideoCapturer(activity)
         publishButton = view.findViewById(R.id.bellPublishButton)
 
         val sid = arguments?.getString(ARG_INPUT_SID)
         if (sid != null) {
-            connection(sid, activity, context)
+            connection(sid, activity)
         }
     }
 
-    private fun connection(sid: String, activity: Activity, context: Context) {
-        whipExchange = WHIPExchange(Config.liveBaseURI, sid)
+    private fun connection(sid: String, activity: Activity) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            peerFactory.getIceServers(sid)
+        }
+        whipExchange = WHIPExchange(Config.LIVE_BASE_URL, sid)
         socketExchange = SocketExchange(sid)
         socketExchange.connect()
         subscribeSocketEvents()
         publishButton.setOnClickListener {
-            if (whipPeer !== null) {
-                whipPeer?.close()
+            whipPeer?.let {
+                it.close()
             }
-            whipPeer = WHIPPeer(activity, videoCapturer, whipExchange, videoViewAdapter)
-            whipPeer?.startCapture()
-            whipPeer?.initPeerConnection()
+            whipPeer = WHIPPeer(activity, videoCapturer, whipExchange, videoViewAdapter,peerFactory)
             whipPeer?.connect()
             whipPeer?.addVideoToView()
         }
@@ -96,9 +107,23 @@ class BellFragment : Fragment() {
         }
     }
 
-    private fun onSocketOffer(data: JSONObject) {}
-    private fun onSocketCandidate(data: JSONObject) {}
+    private fun onSocketOffer(data: JSONObject) {
+        logJson(data, "onSocketOffer")
 
+    }
+    private fun onSocketCandidate(data: JSONObject) {
+        logJson(data, "onSocketCandidate")
+    }
+
+    private fun logJson(jsonObject: JSONObject, tag: String) {
+        try {
+            // Pretty print with indentation of 4 spaces
+            val formattedJson = jsonObject.toString(4)
+            android.util.Log.d(TAG, "$tag:\n$formattedJson")
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Error logging JSON: ${e.message}")
+        }
+    }
 
     companion object {
         private const val ARG_INPUT_SID = "sid"

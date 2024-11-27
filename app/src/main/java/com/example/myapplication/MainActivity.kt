@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        Config.initialize(this)
         setContentView(R.layout.main_layout)
 
         val rootView: View = findViewById(android.R.id.content)

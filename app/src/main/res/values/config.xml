@@ -1,0 +1,6 @@
+<resources>
+    <string name="live_base_uri">https://streaming-gateway.irvinei.com</string>
+    <string name="websocket_uri">ws://testingserver.irvinei.com:8080</string>
+    <string name="turn_server_api">https://turn-dev.irvinei.com/turn/credentials</string>
+    <string name="turn_api_key">APINGATp5C4yp5M</string>
+</resources>
