@@ -6,6 +6,7 @@ import com.example.myapplication.VideoItem
 import com.example.myapplication.VideoViewAdapter
 import com.example.myapplication.exchange.WHIPExchange
 import org.webrtc.AudioTrack
+import org.webrtc.EglBase
 import org.webrtc.IceCandidate
 import org.webrtc.MediaConstraints
 import org.webrtc.PeerConnection
@@ -14,6 +15,7 @@ import org.webrtc.SessionDescription
 import org.webrtc.SurfaceTextureHelper
 import org.webrtc.VideoCapturer
 import org.webrtc.VideoTrack
+import java.util.UUID
 
 
 class WHIPPeer(
@@ -27,9 +29,11 @@ class WHIPPeer(
     private val TAG = "WHIPPeer"
 
 
-    private val LOCAL_STREAM_ID = "media_stream_${exchange.sid}"
-    private val LOCAL_AUDIO_TRACK_ID = "audio_track_${exchange.sid}"
-    private val LOCAL_VIDEO_TRACK_ID = "video_track_${exchange.sid}"
+    private val LOCAL_STREAM_ID = UUID.randomUUID().toString()
+    private val LOCAL_AUDIO_TRACK_ID = UUID.randomUUID().toString()
+    private val LOCAL_VIDEO_TRACK_ID = UUID.randomUUID().toString()
+
+    private val rootEglBase: EglBase = EglBase.create()
 
     private val peerConnection: PeerConnection by lazy { createPeerConnection() }
 
@@ -64,7 +68,7 @@ class WHIPPeer(
             })
     }
 
-    fun initPeerConnection(): PeerConnection {
+    private fun initPeerConnection(): PeerConnection {
         localAudioTrack = factory.peerConnectionFactory.createAudioTrack(
             LOCAL_AUDIO_TRACK_ID,
             localAudioSource
@@ -93,10 +97,10 @@ class WHIPPeer(
         createOffer()
     }
 
-    fun startCapture() {
+    private fun startCapture() {
         val surfaceTextureHelper = SurfaceTextureHelper.create(
             Thread.currentThread().name,
-            factory.rootEglBase.eglBaseContext
+            rootEglBase.eglBaseContext
         )
         videoCapturer.initialize(surfaceTextureHelper, activity, localVideoSource.capturerObserver)
         videoCapturer.startCapture(1280, 720, 30)
@@ -153,7 +157,6 @@ class WHIPPeer(
         }, offer)
     }
 
-    // Add answer and set as remote description
     fun addAnswer(answer: SessionDescription) {
         peerConnection.setRemoteDescription(object : SdpObserver {
             override fun onCreateSuccess(sdp: SessionDescription?) {
@@ -205,10 +208,18 @@ class WHIPPeer(
         }
     }
 
+    private fun removeRemoteTrackFromUI() {
+        activity.runOnUiThread {
+            videoViewAdapter.findAndRemoveItemByName(exchange.sid)
+        }
+    }
+
+
     // Close the peer connection and stop the video capturer
     fun close() {
-        videoViewAdapter.findAndRemoveItemByName(exchange.sid)
+        removeRemoteTrackFromUI()
         peerConnection.close()
         videoCapturer.stopCapture()
+        rootEglBase.release()
     }
 }

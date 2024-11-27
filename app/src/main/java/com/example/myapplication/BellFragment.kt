@@ -19,7 +19,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.webrtc.Camera2Enumerator
-import org.webrtc.EglBase
 import org.webrtc.VideoCapturer
 
 
@@ -40,7 +39,6 @@ class BellFragment : Fragment() {
     private lateinit var socketExchange: SocketExchange
     private lateinit var publishButton: Button
 
-    private lateinit var rootEglBase: EglBase
     private lateinit var peerFactory: PeerFactory
 
     override fun onCreateView(
@@ -55,14 +53,14 @@ class BellFragment : Fragment() {
         val activity = requireActivity()
         val context = requireContext()
 
+
         recyclerView = view.findViewById(R.id.recyclerView)
         videoViewAdapter = VideoViewAdapter(videoItems)
         recyclerView.layoutManager = LinearLayoutManager(context)
         recyclerView.adapter = videoViewAdapter
 
 
-        rootEglBase = EglBase.create()
-        peerFactory = PeerFactory(activity, rootEglBase)
+        peerFactory = PeerFactory(activity)
 
         videoCapturer = getVideoCapturer(activity)
         publishButton = view.findViewById(R.id.bellPublishButton)
@@ -85,7 +83,8 @@ class BellFragment : Fragment() {
             whipPeer?.let {
                 it.close()
             }
-            whipPeer = WHIPPeer(activity, videoCapturer, whipExchange, videoViewAdapter,peerFactory)
+            whipPeer =
+                WHIPPeer(activity, videoCapturer, whipExchange, videoViewAdapter, peerFactory)
             whipPeer?.connect()
             whipPeer?.addVideoToView()
         }
@@ -111,6 +110,7 @@ class BellFragment : Fragment() {
         logJson(data, "onSocketOffer")
 
     }
+
     private fun onSocketCandidate(data: JSONObject) {
         logJson(data, "onSocketCandidate")
     }

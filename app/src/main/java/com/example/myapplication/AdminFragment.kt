@@ -14,13 +14,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.exchange.SocketExchange
 import com.example.myapplication.exchange.WHEPExchange
+import com.example.myapplication.webrtc.PeerFactory
 import com.example.myapplication.webrtc.WHEPPeer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import org.webrtc.DefaultVideoDecoderFactory
-import org.webrtc.EglBase
-import org.webrtc.HardwareVideoEncoderFactory
-import org.webrtc.PeerConnectionFactory
 
 class AdminFragment : Fragment() {
     private val TAG = "AdminFragment"
@@ -39,8 +37,7 @@ class AdminFragment : Fragment() {
     private lateinit var callButton: Button
     private lateinit var callInput: EditText
 
-    private val rootEglBase: EglBase = EglBase.create()
-    private val peerConnectionFactory: PeerConnectionFactory by lazy { buildPeerConnectionFactory() }
+    private lateinit var peerFactory: PeerFactory
 
 
     override fun onCreateView(
@@ -55,10 +52,15 @@ class AdminFragment : Fragment() {
         val activity = requireActivity()
         val context = requireContext()
 
+
+
         recyclerView = view.findViewById(R.id.recyclerView)
         videoViewAdapter = VideoViewAdapter(videoItems)
         recyclerView.layoutManager = LinearLayoutManager(context)
         recyclerView.adapter = videoViewAdapter
+
+
+        peerFactory = PeerFactory(activity)
 
         callInput = view.findViewById(R.id.callInput)
         callButton = view.findViewById(R.id.callButton)
@@ -81,16 +83,20 @@ class AdminFragment : Fragment() {
 
     private fun connectBell(bellId: String, activity: Activity) {
         Log.e(TAG, "Joining: $bellId")
+
         if (whepPeer !== null) {
             whepPeer!!.close()
         }
 
         whepExchange = WHEPExchange(Config.LIVE_BASE_URL, bellId)
-        whepPeer = WHEPPeer(activity, videoViewAdapter, whepExchange!!, peerConnectionFactory)
+        whepPeer = WHEPPeer(activity, videoViewAdapter, whepExchange!!, peerFactory)
         whepPeer!!.connect()
     }
 
     private fun connection(sid: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            peerFactory.getIceServers(sid)
+        }
         socketExchange = SocketExchange(sid)
         socketExchange.connect()
         subscribeSocketEvents()
@@ -111,27 +117,6 @@ class AdminFragment : Fragment() {
 
     private fun onSocketAnswer(data: JSONObject) {}
     private fun onSocketCandidate(data: JSONObject) {}
-
-    private fun buildPeerConnectionFactory(): PeerConnectionFactory {
-        initPeerConnectionFactory()
-        val videoEncoderFactory = HardwareVideoEncoderFactory(
-            rootEglBase.eglBaseContext, true, true
-        )
-        val videoDecoderFactory = DefaultVideoDecoderFactory(rootEglBase.eglBaseContext)
-        return PeerConnectionFactory.builder().setVideoEncoderFactory(videoEncoderFactory)
-            .setVideoDecoderFactory(videoDecoderFactory)
-            .setOptions(PeerConnectionFactory.Options().apply {
-                disableEncryption = false
-                disableNetworkMonitor = true
-            }).createPeerConnectionFactory()
-    }
-
-    private fun initPeerConnectionFactory() {
-        val activity = requireActivity()
-        val options = PeerConnectionFactory.InitializationOptions.builder(activity.application)
-            .setEnableInternalTracer(true).createInitializationOptions()
-        PeerConnectionFactory.initialize(options)
-    }
 
 
     companion object {

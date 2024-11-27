@@ -16,10 +16,11 @@ import org.webrtc.PeerConnectionFactory
 
 class PeerFactory(
     private val activity: Activity,
-    val rootEglBase:EglBase
 ) {
 
+    private val rootEglBase:EglBase = EglBase.create()
     val peerConnectionFactory: PeerConnectionFactory by lazy { buildPeerConnectionFactory() }
+
     private val iceServers: MutableList<PeerConnection.IceServer> = mutableListOf()
 
     init {

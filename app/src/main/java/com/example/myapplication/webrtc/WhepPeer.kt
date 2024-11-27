@@ -9,8 +9,6 @@ import org.webrtc.IceCandidate
 import org.webrtc.MediaConstraints
 import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
-import org.webrtc.PeerConnection.IceServer
-import org.webrtc.PeerConnectionFactory
 import org.webrtc.RtpTransceiver
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
@@ -20,7 +18,7 @@ class WHEPPeer(
     private val activity: Activity,
     private val videoViewAdapter: VideoViewAdapter,
     private val exchange: WHEPExchange,
-    private val peerConnectionFactory: PeerConnectionFactory,
+    private val factory: PeerFactory,
 ) {
     private val TAG = "WHEPPeer"
 
@@ -63,24 +61,9 @@ class WHEPPeer(
                 }
             }
         }
-        return peerConnectionFactory.createPeerConnection(getRTCConfig(), combinedObserver)!!
+        return factory.createPeerConnection(factory.getRTCConfig(), combinedObserver)
     }
 
-    private fun getRTCConfig(): PeerConnection.RTCConfiguration {
-        return PeerConnection.RTCConfiguration(getIceServers()).apply {
-            sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
-            continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_ONCE
-            bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
-            rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
-            iceTransportsType = PeerConnection.IceTransportsType.ALL
-            enableCpuOveruseDetection = false
-        }
-    }
-
-    private fun getIceServers(): List<IceServer> {
-        // return your ICE server list here (like from signaling server or static)
-        return listOf()
-    }
 
     fun connect() {
         createOffer()
