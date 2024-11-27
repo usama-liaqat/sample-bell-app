@@ -4,7 +4,6 @@ import android.app.Activity
 import android.app.Application
 import android.util.Log
 import com.example.myapplication.VideoItem
-import com.example.myapplication.exchange.SocketExchange.Companion.TAG
 import com.example.myapplication.exchange.WHIPExchange
 import org.webrtc.AudioTrack
 import org.webrtc.EglBase
@@ -26,8 +25,8 @@ class WHIPPeer(
     private val context: Activity,
     private val videoCapturer: VideoCapturer,
     private val exchange: WHIPExchange,
-    private val observer: PeerConnection.Observer,
 ) {
+    private val TAG = "WHIPPeer"
 
     private val rootEglBase: EglBase = EglBase.create()
     private val peerConnectionFactory: PeerConnectionFactory by lazy { buildPeerConnectionFactory() }
@@ -48,35 +47,39 @@ class WHIPPeer(
 
     private fun buildPeerConnectionFactory(): PeerConnectionFactory {
         val videoEncoderFactory = HardwareVideoEncoderFactory(
-            rootEglBase.eglBaseContext,
-            false,
-            true
+            rootEglBase.eglBaseContext, false, true
         )
         val videoDecoderFactory = HardwareVideoDecoderFactory(rootEglBase.eglBaseContext)
-        return PeerConnectionFactory.builder()
-            .setVideoEncoderFactory(videoEncoderFactory)
+        return PeerConnectionFactory.builder().setVideoEncoderFactory(videoEncoderFactory)
             .setVideoDecoderFactory(videoDecoderFactory)
             .setOptions(PeerConnectionFactory.Options().apply {
                 disableEncryption = false
                 disableNetworkMonitor = true
-            })
-            .createPeerConnectionFactory()
+            }).createPeerConnectionFactory()
     }
 
     private fun initPeerConnectionFactory(context: Application) {
         val options = PeerConnectionFactory.InitializationOptions.builder(context)
-            .setEnableInternalTracer(true)
-            .createInitializationOptions()
+            .setEnableInternalTracer(true).createInitializationOptions()
         PeerConnectionFactory.initialize(options)
     }
 
     private fun createPeerConnection(): PeerConnection {
-        return peerConnectionFactory.createPeerConnection(getRTCConfig(), observer)!!
+        return peerConnectionFactory.createPeerConnection(
+            getRTCConfig(),
+            object : PeerConnectionObserver() {
+                override fun onIceCandidate(iceCandidate: IceCandidate?) {
+                    if (iceCandidate !== null) {
+                        addIceCandidate(iceCandidate)
+                    }
+                }
+            })!!
     }
 
-    fun initPeerConnection() : PeerConnection {
+    fun initPeerConnection(): PeerConnection {
         peerConnectionFactory.createAudioSource(MediaConstraints())
-        localAudioTrack = peerConnectionFactory.createAudioTrack(LOCAL_TRACK_ID + "_audio", localAudioSource)
+        localAudioTrack =
+            peerConnectionFactory.createAudioTrack(LOCAL_TRACK_ID + "_audio", localAudioSource)
 
         localVideoTrack = peerConnectionFactory.createVideoTrack(LOCAL_TRACK_ID, localVideoSource)
         val localStream = peerConnectionFactory.createLocalMediaStream(LOCAL_STREAM_ID)
@@ -109,12 +112,13 @@ class WHIPPeer(
         return listOf()
     }
 
-    fun connect(){
+    fun connect() {
         createOffer()
     }
 
     fun startCapture() {
-        val surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().name, rootEglBase.eglBaseContext)
+        val surfaceTextureHelper =
+            SurfaceTextureHelper.create(Thread.currentThread().name, rootEglBase.eglBaseContext)
         videoCapturer.initialize(surfaceTextureHelper, context, localVideoSource.capturerObserver)
         videoCapturer.startCapture(1280, 720, 30)
     }
@@ -123,7 +127,6 @@ class WHIPPeer(
         val constraints = MediaConstraints()
         constraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"))
         constraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "false"))
-//        constraints.mandatory.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         peerConnection.createOffer(object : SdpObserver {
             override fun onCreateSuccess(sdp: SessionDescription?) {
                 if (sdp != null) {
@@ -147,26 +150,26 @@ class WHIPPeer(
     fun addOffer(offer: SessionDescription) {
         peerConnection.setLocalDescription(object : SdpObserver {
             override fun onCreateSuccess(sdp: SessionDescription?) {
-                Log.d(TAG,"Local Description created")
+                Log.d(TAG, "Local Description created")
             }
 
             override fun onCreateFailure(error: String?) {
-                Log.d(TAG,"Local Description create failure ${error}")
+                Log.d(TAG, "Local Description create failure ${error}")
             }
 
             override fun onSetSuccess() {
-                Log.d(TAG,"Local Description success")
+                Log.d(TAG, "Local Description success")
                 exchange.sendOffer(offer = offer, onSuccess = { response ->
                     Log.e(TAG, "SDP Offer Send Success")
                     val answer = SessionDescription(SessionDescription.Type.ANSWER, response)
                     addAnswer(answer)
-                }, onError = { error->
+                }, onError = { error ->
                     Log.e(TAG, "SDP Offer Send failed: $error")
                 })
             }
 
             override fun onSetFailure(error: String?) {
-                Log.d(TAG,"Local Description set failure ${error}")
+                Log.d(TAG, "Local Description set failure ${error}")
             }
         }, offer)
     }
@@ -175,39 +178,49 @@ class WHIPPeer(
     fun addAnswer(answer: SessionDescription) {
         peerConnection.setRemoteDescription(object : SdpObserver {
             override fun onCreateSuccess(sdp: SessionDescription?) {
-                Log.d(TAG,"Remote Description created")
+                Log.d(TAG, "Remote Description created")
             }
+
             override fun onCreateFailure(error: String?) {
-                Log.d(TAG,"Remote Description create failure ${error}")
+                Log.d(TAG, "Remote Description create failure ${error}")
             }
+
             override fun onSetSuccess() {
-                Log.d(TAG,"Remote Description success")
+                Log.d(TAG, "Remote Description success")
                 pendingCandidates.forEach { candidate ->
-                    peerConnection.addIceCandidate(candidate)
+                    sendIceCandidate(candidate)
                 }
                 pendingCandidates.clear()
             }
+
             override fun onSetFailure(error: String?) {
-                Log.d(TAG,"Remote Description set failure ${error}")
+                Log.d(TAG, "Remote Description set failure ${error}")
             }
         }, answer)
     }
 
-    fun addIceCandidate(iceCandidate: IceCandidate){
-        Log.d(TAG,"IceCandidate ${iceCandidate.sdp}")
-        if(peerConnection.remoteDescription !== null){
-            peerConnection.addIceCandidate(iceCandidate)
+    private fun sendIceCandidate(iceCandidate: IceCandidate){
+        exchange.sendLocalCandidates(candidate = iceCandidate.sdp!!, onSuccess = {
+            Log.e(TAG, "Ice Candidate Send Success")
+        }, onError = { error ->
+            Log.e(TAG, "Ice Candidate Send failed: $error")
+        })
+    }
+
+    private fun addIceCandidate(iceCandidate: IceCandidate) {
+        Log.d(TAG, "IceCandidate ${iceCandidate.sdp}")
+        if (peerConnection.remoteDescription !== null) {
+            sendIceCandidate(iceCandidate)
         } else {
             pendingCandidates.add(iceCandidate)
         }
     }
 
-    fun getVideoItem() : VideoItem? {
-        if(localVideoTrack !== null){
+    fun getVideoItem(): VideoItem? {
+        if (localVideoTrack !== null) {
             val surfaceItem = VideoItem(
                 name = exchange.sid, // You can set a dynamic title
-                videoTrack = localVideoTrack,
-                mirror = true
+                videoTrack = localVideoTrack, mirror = true
             )
             return surfaceItem
         }
@@ -219,7 +232,6 @@ class WHIPPeer(
         peerConnection.close()
         peerConnectionFactory.dispose()
     }
-
 
 
     companion object {

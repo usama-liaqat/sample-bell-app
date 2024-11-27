@@ -13,18 +13,16 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.exchange.SocketExchange
 import com.example.myapplication.exchange.WHIPExchange
-import com.example.myapplication.webrtc.PeerConnectionObserver
 import com.example.myapplication.webrtc.WHIPPeer
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import org.webrtc.IceCandidate
-import org.webrtc.MediaStream
-import org.webrtc.RtpReceiver
-import org.webrtc.VideoCapturer
 import org.webrtc.Camera2Enumerator
+import org.webrtc.VideoCapturer
 
 
-class BellFragment: Fragment() {
+class BellFragment : Fragment() {
+    private val TAG = "BellFragment"
+
     private lateinit var videoViewAdapter: VideoViewAdapter
     private lateinit var recyclerView: RecyclerView
 
@@ -35,12 +33,12 @@ class BellFragment: Fragment() {
 
     private lateinit var whipExchange: WHIPExchange
     private lateinit var whipPeer: WHIPPeer
+
     private lateinit var socketExchange: SocketExchange
     private lateinit var publishButton: Button
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
         // Inflate the layout for this fragment
         return inflater.inflate(R.layout.bell_fragment, container, false)
@@ -56,7 +54,7 @@ class BellFragment: Fragment() {
         recyclerView.layoutManager = LinearLayoutManager(context)
         recyclerView.adapter = videoViewAdapter
 
-        videoCapturer =  getVideoCapturer(activity)
+        videoCapturer = getVideoCapturer(activity)
         publishButton = view.findViewById(R.id.bellPublishButton)
 
         val sid = arguments?.getString(ARG_INPUT_SID)
@@ -65,42 +63,20 @@ class BellFragment: Fragment() {
         }
     }
 
-    private fun connection(sid: String, activity:Activity, context:Context){
+    private fun connection(sid: String, activity: Activity, context: Context) {
         whipExchange = WHIPExchange(Config.liveBaseURI, sid)
         socketExchange = SocketExchange(sid)
         socketExchange.connect()
         subscribeSocketEvents()
         publishButton.setOnClickListener {
-            publish(activity, context)
-        }
-    }
-
-    private fun publish(activity:Activity, context:Context){
-        whipPeer = WHIPPeer(activity,videoCapturer, whipExchange, object: PeerConnectionObserver() {
-            override fun onAddTrack(
-                receiver: RtpReceiver?,
-                mediaStreams: Array<out MediaStream>?
-            ) {
-                TODO("Not yet implemented")
+            whipPeer = WHIPPeer(activity, videoCapturer, whipExchange)
+            whipPeer.startCapture()
+            whipPeer.initPeerConnection()
+            whipPeer.connect()
+            val videoItem = whipPeer.getVideoItem()
+            if (videoItem !== null) {
+                videoViewAdapter.addItem(videoItem)
             }
-
-            override fun onRemoveStream(mediaStream: MediaStream?) {
-                TODO("Not yet implemented")
-            }
-
-            override fun onIceCandidate(iceCandidate: IceCandidate?) {
-                super.onIceCandidate(iceCandidate)
-                if(iceCandidate !== null){
-                    whipPeer.addIceCandidate(iceCandidate)
-                }
-            }
-        })
-        whipPeer.startCapture()
-        whipPeer.initPeerConnection()
-        whipPeer.connect()
-        val videoItem = whipPeer.getVideoItem()
-        if(videoItem!== null) {
-            videoViewAdapter.addItem(videoItem)
         }
     }
 
@@ -120,8 +96,8 @@ class BellFragment: Fragment() {
         }
     }
 
-    private fun onSocketOffer(data: JSONObject){}
-    private fun onSocketCandidate(data: JSONObject){}
+    private fun onSocketOffer(data: JSONObject) {}
+    private fun onSocketCandidate(data: JSONObject) {}
 
 
     companion object {

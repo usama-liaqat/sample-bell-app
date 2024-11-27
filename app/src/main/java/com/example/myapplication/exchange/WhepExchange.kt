@@ -3,19 +3,20 @@ package com.example.myapplication.exchange
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.webrtc.SessionDescription
 import java.io.IOException
 
-class WHEPExchange(private val baseURI: String, private val sid: String) {
+class WHEPExchange(private val baseURI: String,  val sid: String) {
     private val client = OkHttpClient()
     private var sessionPath: String = ""
 
     fun sendOffer(
-        offerSdp: String,
+        offer: SessionDescription,
         onSuccess: (String) -> Unit,
         onError: (String) -> Unit
     ) {
         val mediaType = "application/sdp".toMediaType()
-        val body = offerSdp.toRequestBody(mediaType)
+        val body = offer.description.toRequestBody(mediaType)
         val request = Request.Builder()
             .url("$baseURI/$sid/whep")
             .post(body)

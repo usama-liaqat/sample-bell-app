@@ -40,7 +40,9 @@ class VideoViewAdapter(private val items: MutableList<VideoItem>) :
         if (videoTrack != null) {
             holder.surfaceViewRenderer.init(EglBase.create().eglBaseContext, null)
             holder.surfaceViewRenderer.setMirror(item.mirror)
+            holder.surfaceViewRenderer.setZOrderMediaOverlay(true)
             videoTrack.addSink(holder.surfaceViewRenderer)
+
         }
     }
 
@@ -63,8 +65,14 @@ class VideoViewAdapter(private val items: MutableList<VideoItem>) :
         }
     }
 
-    fun updateRendererForItem(position: Int, newVideoTrack: VideoTrack?) {
-        items[position] = items[position].copy(videoTrack = newVideoTrack)
-        notifyItemChanged(position)
+    fun addOrUpdateItem(item: VideoItem) {
+        val index = items.indexOfFirst { it.name == item.name }
+        if (index != -1) {
+            items[index] = items[index].copy(videoTrack = item.videoTrack)
+            notifyItemChanged(index)
+        } else {
+            addItem(item)
+        }
+
     }
 }
