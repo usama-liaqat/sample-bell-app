@@ -32,7 +32,7 @@ class BellFragment : Fragment() {
     private lateinit var videoCapturer: VideoCapturer
 
     private lateinit var whipExchange: WHIPExchange
-    private lateinit var whipPeer: WHIPPeer
+    private var whipPeer: WHIPPeer? = null
 
     private lateinit var socketExchange: SocketExchange
     private lateinit var publishButton: Button
@@ -69,14 +69,14 @@ class BellFragment : Fragment() {
         socketExchange.connect()
         subscribeSocketEvents()
         publishButton.setOnClickListener {
-            whipPeer = WHIPPeer(activity, videoCapturer, whipExchange)
-            whipPeer.startCapture()
-            whipPeer.initPeerConnection()
-            whipPeer.connect()
-            val videoItem = whipPeer.getVideoItem()
-            if (videoItem !== null) {
-                videoViewAdapter.addItem(videoItem)
+            if (whipPeer !== null) {
+                whipPeer?.close()
             }
+            whipPeer = WHIPPeer(activity, videoCapturer, whipExchange, videoViewAdapter)
+            whipPeer?.startCapture()
+            whipPeer?.initPeerConnection()
+            whipPeer?.connect()
+            whipPeer?.addVideoToView()
         }
     }
 

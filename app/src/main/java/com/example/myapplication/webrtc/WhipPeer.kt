@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.util.Log
 import com.example.myapplication.VideoItem
+import com.example.myapplication.VideoViewAdapter
 import com.example.myapplication.exchange.WHIPExchange
 import org.webrtc.AudioTrack
 import org.webrtc.EglBase
@@ -22,10 +23,12 @@ import org.webrtc.VideoTrack
 
 
 class WHIPPeer(
-    private val context: Activity,
+    private val activity: Activity,
     private val videoCapturer: VideoCapturer,
     private val exchange: WHIPExchange,
-) {
+    private val videoViewAdapter: VideoViewAdapter,
+
+    ) {
     private val TAG = "WHIPPeer"
 
     private val rootEglBase: EglBase = EglBase.create()
@@ -42,13 +45,20 @@ class WHIPPeer(
 
 
     init {
-        initPeerConnectionFactory(context.application)
+        initPeerConnectionFactory(activity.application)
     }
 
     private fun buildPeerConnectionFactory(): PeerConnectionFactory {
         val videoEncoderFactory = HardwareVideoEncoderFactory(
             rootEglBase.eglBaseContext, false, true
         )
+        val supportedCodecs = videoEncoderFactory.supportedCodecs
+        supportedCodecs.forEach { codec ->
+            Log.d("SupportedCodec", "Codec Name: ${codec.name}")
+            codec.params.forEach { (key, value) ->
+                Log.d("SupportedCodec", "  Param: $key = $value")
+            }
+        }
         val videoDecoderFactory = HardwareVideoDecoderFactory(rootEglBase.eglBaseContext)
         return PeerConnectionFactory.builder().setVideoEncoderFactory(videoEncoderFactory)
             .setVideoDecoderFactory(videoDecoderFactory)
@@ -65,8 +75,7 @@ class WHIPPeer(
     }
 
     private fun createPeerConnection(): PeerConnection {
-        return peerConnectionFactory.createPeerConnection(
-            getRTCConfig(),
+        return peerConnectionFactory.createPeerConnection(getRTCConfig(),
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(iceCandidate: IceCandidate?) {
                     if (iceCandidate !== null) {
@@ -119,7 +128,7 @@ class WHIPPeer(
     fun startCapture() {
         val surfaceTextureHelper =
             SurfaceTextureHelper.create(Thread.currentThread().name, rootEglBase.eglBaseContext)
-        videoCapturer.initialize(surfaceTextureHelper, context, localVideoSource.capturerObserver)
+        videoCapturer.initialize(surfaceTextureHelper, activity, localVideoSource.capturerObserver)
         videoCapturer.startCapture(1280, 720, 30)
     }
 
@@ -199,7 +208,7 @@ class WHIPPeer(
         }, answer)
     }
 
-    private fun sendIceCandidate(iceCandidate: IceCandidate){
+    private fun sendIceCandidate(iceCandidate: IceCandidate) {
         exchange.sendLocalCandidates(candidate = iceCandidate.sdp!!, onSuccess = {
             Log.e(TAG, "Ice Candidate Send Success")
         }, onError = { error ->
@@ -216,21 +225,23 @@ class WHIPPeer(
         }
     }
 
-    fun getVideoItem(): VideoItem? {
+    fun addVideoToView() {
         if (localVideoTrack !== null) {
-            val surfaceItem = VideoItem(
+            val videoItem = VideoItem(
                 name = exchange.sid, // You can set a dynamic title
                 videoTrack = localVideoTrack, mirror = true
             )
-            return surfaceItem
+            videoViewAdapter.addOrUpdateItem(videoItem)
         }
-        return null
     }
 
     // Close the peer connection and stop the video capturer
     fun close() {
+        videoViewAdapter.findAndRemoveItemByName(exchange.sid)
         peerConnection.close()
         peerConnectionFactory.dispose()
+        videoCapturer.stopCapture()
+
     }
 
 

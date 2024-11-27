@@ -17,8 +17,8 @@ import com.example.myapplication.exchange.WHEPExchange
 import com.example.myapplication.webrtc.WHEPPeer
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import org.webrtc.DefaultVideoDecoderFactory
 import org.webrtc.EglBase
-import org.webrtc.HardwareVideoDecoderFactory
 import org.webrtc.HardwareVideoEncoderFactory
 import org.webrtc.PeerConnectionFactory
 
@@ -117,7 +117,7 @@ class AdminFragment : Fragment() {
         val videoEncoderFactory = HardwareVideoEncoderFactory(
             rootEglBase.eglBaseContext, true, true
         )
-        val videoDecoderFactory = HardwareVideoDecoderFactory(rootEglBase.eglBaseContext)
+        val videoDecoderFactory = DefaultVideoDecoderFactory(rootEglBase.eglBaseContext)
         return PeerConnectionFactory.builder().setVideoEncoderFactory(videoEncoderFactory)
             .setVideoDecoderFactory(videoDecoderFactory)
             .setOptions(PeerConnectionFactory.Options().apply {
