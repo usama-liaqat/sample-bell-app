@@ -7,6 +7,7 @@ import androidx.recyclerview.widget.RecyclerView
 import org.webrtc.EglBase
 import org.webrtc.SurfaceViewRenderer
 import android.view.ViewGroup
+import org.webrtc.RendererCommon
 import org.webrtc.VideoTrack
 
 
@@ -39,6 +40,7 @@ class VideoViewAdapter(private val items: MutableList<VideoItem>) :
         val videoTrack = item.videoTrack
         if (videoTrack != null) {
             holder.surfaceViewRenderer.init(EglBase.create().eglBaseContext, null)
+            holder.surfaceViewRenderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
             holder.surfaceViewRenderer.setMirror(item.mirror)
             holder.surfaceViewRenderer.setZOrderMediaOverlay(true)
             videoTrack.addSink(holder.surfaceViewRenderer)
