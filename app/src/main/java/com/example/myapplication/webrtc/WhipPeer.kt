@@ -83,8 +83,13 @@ class WHIPPeer(
 
         localStream.addTrack(localVideoTrack)
         localStream.addTrack(localAudioTrack)
+
+        localVideoTrack?.setEnabled(true)
+        localAudioTrack?.setEnabled(true)
+
         peerConnection.addTrack(localVideoTrack, listOf(LOCAL_STREAM_ID))
         peerConnection.addTrack(localAudioTrack, listOf(LOCAL_STREAM_ID))
+
         return peerConnection
     }
 
