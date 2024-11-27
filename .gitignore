@@ -1,3 +1,9 @@
+# Gradle files
+.gradle/
+build/
+*/build/
+
+
 *.iml
 .gradle
 /local.properties
@@ -13,3 +19,12 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+
+# APK Files
+*.apk
+*.ap_
+output.json
+
+app/release
+app/debug
