@@ -43,8 +43,8 @@ class WHEPPeer(
                 if (mediaStream !== null && mediaStream.videoTracks !== null && mediaStream.videoTracks.isNotEmpty()) {
                     val remoteVideoTrack = mediaStream.videoTracks[0]
                     if (remoteVideoTrack !== null) {
-                        remoteVideoTrack.setEnabled(true)
                         addRemoteTrackToUI(remoteVideoTrack)
+                        remoteVideoTrack.setEnabled(true)
                     }
 
                 }
@@ -56,8 +56,8 @@ class WHEPPeer(
 
                 if (transceiver?.receiver?.track() is VideoTrack) {
                     val remoteVideoTrack = transceiver.receiver.track() as VideoTrack
-                    remoteVideoTrack.setEnabled(true)
                     addRemoteTrackToUI(remoteVideoTrack)
+                    remoteVideoTrack.setEnabled(true)
                 }
             }
         }

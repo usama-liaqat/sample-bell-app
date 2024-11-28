@@ -90,15 +90,15 @@ class AdminFragment : Fragment() {
                 return@setOnClickListener // Stop the method execution if input is empty
             }
             connectBell(inputText, activity)
-            connectPeer(inputText, activity)
+//            connectPeer(inputText, activity)
         }
     }
 
     private fun connectBell(bellId: String, activity: Activity) {
         Log.e(TAG, "Joining: $bellId")
 
-        if (whepPeer !== null) {
-            whepPeer!!.close()
+        whepPeer.let {
+            whepPeer?.close()
         }
 
         whepExchange = WHEPExchange(Config.LIVE_BASE_URL, bellId)

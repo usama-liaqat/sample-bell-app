@@ -23,7 +23,7 @@ import java.util.UUID
 
 class Peer(
     private val id: String,
-    publish: Boolean,
+    private val publish: Boolean,
     private val activity: Activity,
     private val videoCapturer: VideoCapturer,
     private val factory: PeerFactory,
@@ -35,9 +35,9 @@ class Peer(
 
     private val TAG = "Peer"
 
-    private val LOCAL_STREAM_ID = UUID.randomUUID().toString()
-    private val LOCAL_AUDIO_TRACK_ID = UUID.randomUUID().toString()
-    private val LOCAL_VIDEO_TRACK_ID = UUID.randomUUID().toString()
+    private val localStreamID = UUID.randomUUID().toString()
+    private val localAudioTrackID = UUID.randomUUID().toString()
+    private val localVideoTrackID = UUID.randomUUID().toString()
 
 
     private val rootEglBase: EglBase = EglBase.create()
@@ -59,6 +59,7 @@ class Peer(
         if (publish) {
             startCapture()
             initTracks()
+            addLocalTrackToView()
         }
     }
 
@@ -116,7 +117,7 @@ class Peer(
                         removeTrackFromUI(socketExchange.sid)
                     }
                 }
-            })!!
+            })
     }
 
     private fun startCapture() {
@@ -130,26 +131,20 @@ class Peer(
 
 
     private fun initTracks() {
-        localAudioTrack = factory.createAudioTrack(
-            LOCAL_AUDIO_TRACK_ID,
-            localAudioSource
-        )
-
         localVideoTrack = factory.createVideoTrack(
-            LOCAL_VIDEO_TRACK_ID,
+            localVideoTrackID,
             localVideoSource
         )
-
-        val localStream = factory.createLocalMediaStream(LOCAL_STREAM_ID)
-
-        localStream.addTrack(localVideoTrack)
-        localStream.addTrack(localAudioTrack)
-
+        peerConnection.addTrack(localVideoTrack, listOf(localStreamID))
         localVideoTrack?.setEnabled(true)
-        localAudioTrack?.setEnabled(true)
 
-        peerConnection.addTrack(localVideoTrack, listOf(LOCAL_STREAM_ID))
-        peerConnection.addTrack(localAudioTrack, listOf(LOCAL_STREAM_ID))
+
+        localAudioTrack = factory.createAudioTrack(
+            localAudioTrackID,
+            localAudioSource
+        )
+        peerConnection.addTrack(localAudioTrack, listOf(localStreamID))
+        localAudioTrack?.setEnabled(true)
     }
 
 
@@ -158,12 +153,10 @@ class Peer(
         val constraints = MediaConstraints()
         constraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"))
         constraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "false"))
-
         peerConnection.createOffer(object : SdpObserver {
             override fun onCreateSuccess(offer: SessionDescription?) {
                 Log.d(TAG, "Offer Description created")
                 if (offer != null) {
-                    addLocalTrackToView()
                     socketExchange.sendOffer(id, offer)
                     peerConnection.setLocalDescription(object : SdpObserver {
                         override fun onCreateSuccess(sdp: SessionDescription?) {
@@ -305,7 +298,7 @@ class Peer(
 
     private fun addLocalTrackToView() {
         activity.runOnUiThread {
-            if (localVideoTrack !== null) {
+            if (publish && localVideoTrack !== null) {
                 val videoItem = VideoItem(
                     name = socketExchange.sid, // You can set a dynamic title
                     videoTrack = localVideoTrack, mirror = true

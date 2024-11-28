@@ -38,13 +38,6 @@ class PeerFactory(
         val videoEncoderFactory = HardwareVideoEncoderFactory(
             rootEglBase.eglBaseContext, false, true
         )
-        val supportedCodecs = videoEncoderFactory.supportedCodecs
-        supportedCodecs.forEach { codec ->
-            Log.d("SupportedCodec", "Codec Name: ${codec.name}")
-            codec.params.forEach { (key, value) ->
-                Log.d("SupportedCodec", "  Param: $key = $value")
-            }
-        }
         val videoDecoderFactory = HardwareVideoDecoderFactory(rootEglBase.eglBaseContext)
         return PeerConnectionFactory.builder().setVideoEncoderFactory(videoEncoderFactory)
             .setVideoDecoderFactory(videoDecoderFactory)
