@@ -15,7 +15,7 @@ import okhttp3.Request
 import okhttp3.WebSocketListener
 import org.webrtc.SessionDescription
 
-class SocketExchange(private val name: String) {
+class SocketExchange(val sid: String) {
     private val client = OkHttpClient.Builder().connectTimeout(30, TimeUnit.SECONDS).build()
     private lateinit var webSocket: WebSocket
 
@@ -41,7 +41,7 @@ class SocketExchange(private val name: String) {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.e(TAG, "WebSocket connection Open")
 
-                webSocket.send("{\"type\": \"register\", \"name\": \"${name}\"}")
+                webSocket.send("{\"type\": \"register\", \"name\": \"${sid}\"}")
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -88,7 +88,7 @@ class SocketExchange(private val name: String) {
         val offer = JSONObject()
         offer.put("type", "offer")
         offer.put("sdp", sdp.description)
-        offer.put("from", name)
+        offer.put("from", sid)
         offer.put("target", target)
         webSocket.send(offer.toString())
     }
@@ -100,7 +100,7 @@ class SocketExchange(private val name: String) {
         val answer = JSONObject()
         answer.put("type", "answer")
         answer.put("sdp", sdp.description)
-        answer.put("from", name)
+        answer.put("from", sid)
         answer.put("target", target)
         webSocket.send(answer.toString())
     }
@@ -115,7 +115,7 @@ class SocketExchange(private val name: String) {
         ice.put("candidate", candidate.sdp)
         ice.put("sdpMLineIndex", candidate.sdpMLineIndex)
         ice.put("sdpMid", candidate.sdpMid)
-        ice.put("from", name)
+        ice.put("from", sid)
         ice.put("target", target)
         webSocket.send(ice.toString())
     }

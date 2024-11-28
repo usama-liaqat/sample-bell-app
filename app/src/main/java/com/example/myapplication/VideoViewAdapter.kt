@@ -36,16 +36,20 @@ class VideoViewAdapter(private val items: MutableList<VideoItem>) :
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
         holder.overlayName.text = item.name
-
+        val renderer = holder.surfaceViewRenderer
         val videoTrack = item.videoTrack
         if (videoTrack != null) {
-            holder.surfaceViewRenderer.init(EglBase.create().eglBaseContext, null)
-            holder.surfaceViewRenderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
-            holder.surfaceViewRenderer.setMirror(item.mirror)
-            holder.surfaceViewRenderer.setZOrderMediaOverlay(true)
-            videoTrack.addSink(holder.surfaceViewRenderer)
-
+            renderer.init(EglBase.create().eglBaseContext, null)
+            renderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
+            renderer.setMirror(item.mirror)
+            renderer.setZOrderMediaOverlay(true)
+            videoTrack.addSink(renderer)
         }
+    }
+
+    override fun onViewRecycled(holder: ViewHolder) {
+        super.onViewRecycled(holder)
+        holder.surfaceViewRenderer.release()
     }
 
     override fun getItemCount(): Int = items.size

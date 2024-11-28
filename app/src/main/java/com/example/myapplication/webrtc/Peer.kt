@@ -1,172 +1,294 @@
 package com.example.myapplication.webrtc
 
 import android.app.Activity
-import android.app.Application
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import android.util.Log
+import com.example.myapplication.VideoItem
+import com.example.myapplication.VideoViewAdapter
+import com.example.myapplication.exchange.SocketExchange
 import org.webrtc.AudioTrack
-import org.webrtc.DefaultVideoDecoderFactory
-import org.webrtc.DefaultVideoEncoderFactory
 import org.webrtc.EglBase
-import org.webrtc.EglBase10.Context
+import org.webrtc.IceCandidate
 import org.webrtc.MediaConstraints
+import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
-import org.webrtc.PeerConnection.IceServer
-import org.webrtc.PeerConnectionFactory
+import org.webrtc.RtpReceiver
+import org.webrtc.RtpTransceiver
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 import org.webrtc.SurfaceTextureHelper
 import org.webrtc.VideoCapturer
 import org.webrtc.VideoTrack
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 
 class Peer(
-    private val context: Activity,
-    private val observer: PeerConnection.Observer,
-    private val videoCapturer: VideoCapturer
-) {
+    private val id: String,
+    private val activity: Activity,
+    private val videoCapturer: VideoCapturer,
+    private val factory: PeerFactory,
+    private var socketExchange: SocketExchange,
+    private val videoViewAdapter: VideoViewAdapter,
+
+
+    ) {
+
+    private val TAG = "Peer"
+
 
     private val rootEglBase: EglBase = EglBase.create()
-    private val peerConnectionFactory: PeerConnectionFactory by lazy { buildPeerConnectionFactory() }
     private val peerConnection: PeerConnection by lazy { createPeerConnection() }
 
-    private var videoTrack: VideoTrack? = null
-    private var audioTrack: AudioTrack? = null
+    private var localAudioTrack: AudioTrack? = null
 
-    private val localVideoSource by lazy { peerConnectionFactory.createVideoSource(false) }
+    private var localVideoTrack: VideoTrack? = null
 
-    init {
-        initPeerConnectionFactory(context.application)
+    private val localVideoSource by lazy { factory.peerConnectionFactory.createVideoSource(false) }
+    private val localAudioSource by lazy {
+        factory.peerConnectionFactory.createAudioSource(
+            MediaConstraints()
+        )
     }
+    private val pendingCandidates = arrayListOf<IceCandidate>()
 
-    private fun buildPeerConnectionFactory(): PeerConnectionFactory {
-        return PeerConnectionFactory.builder()
-            .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
-            .setVideoEncoderFactory(DefaultVideoEncoderFactory(rootEglBase.eglBaseContext, true, true))
-            .setOptions(PeerConnectionFactory.Options().apply {
-                disableEncryption = false
-                disableNetworkMonitor = true
-            })
-            .createPeerConnectionFactory()
-    }
-
-    private fun initPeerConnectionFactory(context: Application) {
-        val options = PeerConnectionFactory.InitializationOptions.builder(context)
-            .setEnableInternalTracer(true)
-            .createInitializationOptions()
-        PeerConnectionFactory.initialize(options)
-    }
 
     private fun createPeerConnection(): PeerConnection {
-        return peerConnectionFactory.createPeerConnection(getRTCConfig(), observer)!!
+        return factory.peerConnectionFactory.createPeerConnection(factory.getRTCConfig(),
+            object : PeerConnectionObserver() {
+                override fun onIceCandidate(iceCandidate: IceCandidate?) {
+                    if (iceCandidate !== null) {
+                        socketExchange.sendCandidate(id, iceCandidate)
+                    }
+                }
+
+                override fun onAddStream(mediaStream: MediaStream?) {
+                    Log.d(
+                        TAG, "***** PeerConnectionObserver onAddStream fun invoked *****"
+                    )
+
+                    if (mediaStream !== null && mediaStream.videoTracks !== null && mediaStream.videoTracks.isNotEmpty()) {
+                        val remoteVideoTrack = mediaStream.videoTracks[0]
+                        if (remoteVideoTrack !== null) {
+                            remoteVideoTrack.setEnabled(true)
+                            addRemoteTrackToUI(remoteVideoTrack)
+                        }
+
+                    }
+                }
+
+                override fun onTrack(transceiver: RtpTransceiver?) {
+                    super.onTrack(transceiver)
+                    Log.d(TAG, "***** PeerConnectionObserver onTrack fun invoked = $ *****")
+
+                    if (transceiver?.receiver?.track() is VideoTrack) {
+                        val remoteVideoTrack = transceiver.receiver.track() as VideoTrack
+                        remoteVideoTrack.setEnabled(true)
+                        addRemoteTrackToUI(remoteVideoTrack)
+                    }
+                }
+
+                override fun onRemoveTrack(receiver: RtpReceiver?) {
+                    if (receiver?.track() is VideoTrack) {
+                        removeTrackFromUI(id)
+                    }
+
+                }
+
+                override fun onIceConnectionChange(iceConnectionState: PeerConnection.IceConnectionState?) {
+                    val shouldRemoveTracks = arrayOf(
+                        PeerConnection.IceConnectionState.DISCONNECTED,
+                        PeerConnection.IceConnectionState.CLOSED
+                    ).contains(iceConnectionState)
+
+                    if (shouldRemoveTracks) {
+                        removeTrackFromUI(id)
+                        removeTrackFromUI(socketExchange.sid)
+                    }
+                }
+            })!!
     }
 
-    private fun getRTCConfig(): PeerConnection.RTCConfiguration {
-        return PeerConnection.RTCConfiguration(getIceServers()).apply {
-            sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
-            continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_ONCE
-            bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
-            rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
-            iceTransportsType = PeerConnection.IceTransportsType.ALL
-            enableCpuOveruseDetection = false
-        }
-    }
 
-    private fun getIceServers(): List<IceServer> {
-        // return your ICE server list here (like from signaling server or static)
-        return listOf()
-    }
-
-    // Initialize the video capturer and add video track if needed
     fun addVideoTrack() {
-        // Initialize the video capturer with the passed instance
-        val surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().name, rootEglBase.eglBaseContext)
-        videoCapturer.initialize(surfaceTextureHelper, context, localVideoSource.capturerObserver)
+        val surfaceTextureHelper =
+            SurfaceTextureHelper.create(Thread.currentThread().name, rootEglBase.eglBaseContext)
+        videoCapturer.initialize(surfaceTextureHelper, activity, localVideoSource.capturerObserver)
         videoCapturer.startCapture(1280, 720, 30)
 
-        videoTrack = peerConnectionFactory.createVideoTrack("videoTrack", localVideoSource)
-        peerConnection.addTrack(videoTrack)
+        localVideoTrack =
+            factory.peerConnectionFactory.createVideoTrack("videoTrack", localVideoSource)
+        peerConnection.addTrack(localVideoTrack)
     }
 
-    // Add audio track manually
     fun addAudioTrack() {
-        val audioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
-        audioTrack = peerConnectionFactory.createAudioTrack("audioTrack", audioSource)
-        peerConnection.addTrack(audioTrack)
+        localAudioTrack =
+            factory.peerConnectionFactory.createAudioTrack("audioTrack", localAudioSource)
+        peerConnection.addTrack(localAudioTrack)
     }
 
-    suspend fun createOffer(): SessionDescription {
-        return suspendCancellableCoroutine { continuation ->
-            val constraints = MediaConstraints()
-            peerConnection.createOffer(object : SdpObserver {
-                override fun onCreateSuccess(sdp: SessionDescription?) {
-                    if (sdp != null) {
-                        continuation.resume(sdp)
-                    } else {
-                        continuation.resumeWithException(NullPointerException("SDP is null"))
-                    }
+    fun createOffer() {
+        val constraints = MediaConstraints()
+        peerConnection.createOffer(object : SdpObserver {
+            override fun onCreateSuccess(offer: SessionDescription?) {
+                Log.d(TAG, "Offer Description created")
+                if (offer != null) {
+                    socketExchange.sendOffer(id, offer)
+                    peerConnection.setLocalDescription(object : SdpObserver {
+                        override fun onCreateSuccess(sdp: SessionDescription?) {
+                            Log.e(TAG, "Local Description create success")
+                        }
+
+                        override fun onCreateFailure(error: String?) {
+                            Log.e(TAG, "Local Description creation failed: $error")
+                        }
+
+                        override fun onSetSuccess() {
+                            Log.e(TAG, "Local Description set success")
+                        }
+
+                        override fun onSetFailure(error: String?) {
+                            Log.e(TAG, "Local Description set failed: $error")
+                        }
+                    }, offer)
                 }
-
-                override fun onCreateFailure(error: String?) {
-                    continuation.resumeWithException(Exception("SDP creation failed: $error"))
-                }
-
-                override fun onSetSuccess() {}
-                override fun onSetFailure(error: String?) {}
-            }, constraints)
-        }
-    }
-
-    // Add offer and set as remote description manually
-    fun addOffer(offer: SessionDescription) {
-        peerConnection.setRemoteDescription(object : SdpObserver {
-            override fun onCreateSuccess(sdp: SessionDescription?) {}
-            override fun onCreateFailure(error: String?) {}
-            override fun onSetSuccess() {
-                // Handle successful set remote offer
             }
-            override fun onSetFailure(error: String?) {}
-        }, offer)
+
+            override fun onCreateFailure(error: String?) {
+                Log.e(TAG, "Offer Description creation failed: $error")
+            }
+
+            override fun onSetSuccess() {
+                Log.e(TAG, "Offer Description set success")
+
+            }
+
+            override fun onSetFailure(error: String?) {
+                Log.e(TAG, "Offer Description set failed: $error")
+
+            }
+        }, constraints)
     }
 
-    // Function to create answer
-    suspend fun createAnswer(): SessionDescription {
-        return suspendCancellableCoroutine { continuation ->
-            val constraints = MediaConstraints()
-            peerConnection.createAnswer(object : SdpObserver {
-                override fun onCreateSuccess(sdp: SessionDescription?) {
-                    if (sdp != null) {
-                        continuation.resume(sdp)
-                    } else {
-                        continuation.resumeWithException(NullPointerException("SDP is null"))
-                    }
-                }
-
-                override fun onCreateFailure(error: String?) {
-                    continuation.resumeWithException(Exception("SDP creation failed: $error"))
-                }
-
-                override fun onSetSuccess() {}
-                override fun onSetFailure(error: String?) {}
-            }, constraints)
-        }
-    }
-
-    // Add answer and set as remote description
-    fun addAnswer(answer: SessionDescription) {
+    fun createAnswer(offer: SessionDescription) {
+        val constraints = MediaConstraints()
         peerConnection.setRemoteDescription(object : SdpObserver {
-            override fun onCreateSuccess(sdp: SessionDescription?) {}
-            override fun onCreateFailure(error: String?) {}
-            override fun onSetSuccess() {}
-            override fun onSetFailure(error: String?) {}
+            override fun onCreateSuccess(sdp: SessionDescription?) {
+                Log.e(TAG, "Remote Description create success")
+            }
+
+            override fun onCreateFailure(error: String?) {
+                Log.e(TAG, "Remote Description creation failed: $error")
+            }
+
+            override fun onSetSuccess() {
+                Log.e(TAG, "Remote Description set success")
+
+                peerConnection.createAnswer(object : SdpObserver {
+                    override fun onCreateSuccess(answer: SessionDescription?) {
+                        Log.e(TAG, "Answer Description create success")
+                        if (answer != null) {
+                            socketExchange.sendAnswer(id, answer)
+                            peerConnection.setLocalDescription(object : SdpObserver {
+                                override fun onCreateSuccess(sdp: SessionDescription?) {
+                                    Log.e(TAG, "Local Description create success")
+                                }
+
+                                override fun onCreateFailure(error: String?) {
+                                    Log.e(TAG, "Local Description creation failed: $error")
+                                }
+
+                                override fun onSetSuccess() {
+                                    Log.e(TAG, "Local Description set success")
+                                }
+
+                                override fun onSetFailure(error: String?) {
+                                    Log.e(TAG, "Local Description set failed: $error")
+                                }
+                            }, answer)
+                        }
+                    }
+
+                    override fun onCreateFailure(error: String?) {
+                        Log.e(TAG, "Answer Description creation failed: $error")
+                    }
+
+                    override fun onSetSuccess() {
+                        Log.e(TAG, "Answer Description set success")
+
+                    }
+
+                    override fun onSetFailure(error: String?) {
+                        Log.e(TAG, "Answer Description set failed: $error")
+
+                    }
+                }, constraints)
+                pendingCandidates.forEach { candidate ->
+                    peerConnection.addIceCandidate(candidate)
+                }
+                pendingCandidates.clear()
+            }
+
+            override fun onSetFailure(error: String?) {
+                Log.e(TAG, "Remote Description set failed: $error")
+
+            }
+        }, offer)
+
+    }
+
+    fun addRemoteAnswer(answer: SessionDescription) {
+        peerConnection.setRemoteDescription(object : SdpObserver {
+            override fun onCreateSuccess(sdp: SessionDescription?) {
+                Log.e(TAG, "Remote Description create success")
+            }
+
+            override fun onCreateFailure(error: String?) {
+                Log.e(TAG, "Remote Description creation failed: $error")
+            }
+
+            override fun onSetSuccess() {
+                Log.e(TAG, "Remote Description set success")
+                pendingCandidates.forEach { candidate ->
+                    peerConnection.addIceCandidate(candidate)
+                }
+                pendingCandidates.clear()
+            }
+
+            override fun onSetFailure(error: String?) {
+                Log.e(TAG, "Remote Description set failed: $error")
+            }
         }, answer)
     }
 
-    // Close the peer connection and stop the video capturer
+
+    fun addIceCandidate(iceCandidate: IceCandidate) {
+        if (peerConnection.remoteDescription !== null) {
+            peerConnection.addIceCandidate(iceCandidate)
+        } else {
+            pendingCandidates.add(iceCandidate)
+        }
+    }
+
+    private fun addRemoteTrackToUI(videoTrack: VideoTrack) {
+        val videoItem = VideoItem(
+            name = id, // You can set a dynamic title
+            videoTrack = videoTrack, mirror = false
+        )
+
+        activity.runOnUiThread {
+            videoViewAdapter.addOrUpdateItem(videoItem)
+        }
+    }
+
+    private fun removeTrackFromUI(name: String) {
+        activity.runOnUiThread {
+            videoViewAdapter.findAndRemoveItemByName(name)
+        }
+    }
+
     fun close() {
-        peerConnection.close()
-        peerConnectionFactory.dispose()
+        if(peerConnection.connectionState() === PeerConnection.PeerConnectionState.CONNECTED) {
+            peerConnection.close()
+        }
+        removeTrackFromUI(id)
+        removeTrackFromUI(socketExchange.sid)
     }
 }

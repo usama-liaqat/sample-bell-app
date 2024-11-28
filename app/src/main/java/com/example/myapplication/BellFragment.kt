@@ -13,12 +13,15 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.exchange.SocketExchange
 import com.example.myapplication.exchange.WHIPExchange
+import com.example.myapplication.webrtc.Peer
 import com.example.myapplication.webrtc.PeerFactory
 import com.example.myapplication.webrtc.WHIPPeer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.webrtc.Camera2Enumerator
+import org.webrtc.IceCandidate
+import org.webrtc.SessionDescription
 import org.webrtc.VideoCapturer
 
 
@@ -40,6 +43,9 @@ class BellFragment : Fragment() {
     private lateinit var publishButton: Button
 
     private lateinit var peerFactory: PeerFactory
+
+    private val peers = mutableMapOf<String, Peer>()
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -80,8 +86,8 @@ class BellFragment : Fragment() {
         socketExchange.connect()
         subscribeSocketEvents()
         publishButton.setOnClickListener {
-            whipPeer?.let {
-                it.close()
+            whipPeer.let {
+                it?.close()
             }
             whipPeer =
                 WHIPPeer(activity, videoCapturer, whipExchange, videoViewAdapter, peerFactory)
@@ -108,11 +114,31 @@ class BellFragment : Fragment() {
 
     private fun onSocketOffer(data: JSONObject) {
         logJson(data, "onSocketOffer")
-
+        val sdp = data.getString("sdp")
+        val from = data.getString("from")
+        val offer  =SessionDescription(SessionDescription.Type.OFFER, sdp)
+        peers[from].let { it?.close() }
+        val peer = Peer(from,requireActivity(),videoCapturer, peerFactory, socketExchange, videoViewAdapter)
+        peer.createAnswer(offer)
+        peers[from] = peer
     }
 
     private fun onSocketCandidate(data: JSONObject) {
         logJson(data, "onSocketCandidate")
+
+        val from = data.getString("from")
+
+        val candidate = data.getString("candidate")
+        val sdpMLineIndex = data.getInt("sdpMLineIndex")
+        val sdpMid = data.getString("sdpMid")
+
+        val iceCandidate = IceCandidate(
+            sdpMid,
+            sdpMLineIndex,
+            candidate
+        )
+        peers[from].let { it?.addIceCandidate(iceCandidate) }
+
     }
 
     private fun logJson(jsonObject: JSONObject, tag: String) {
