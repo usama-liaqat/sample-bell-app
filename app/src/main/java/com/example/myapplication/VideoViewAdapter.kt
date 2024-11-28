@@ -7,6 +7,12 @@ import androidx.recyclerview.widget.RecyclerView
 import org.webrtc.EglBase
 import org.webrtc.SurfaceViewRenderer
 import android.view.ViewGroup
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.webrtc.RendererCommon
 import org.webrtc.VideoTrack
 
@@ -23,6 +29,8 @@ class VideoViewAdapter(
     private val items: MutableList<VideoItem>,
     private val rootEglBase:EglBase = EglBase.create()
 ) : RecyclerView.Adapter<VideoViewAdapter.ViewHolder>() {
+
+    private val mutex = Mutex()
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val surfaceViewRenderer: SurfaceViewRenderer = view.findViewById(R.id.surfaceViewRenderer)
@@ -57,31 +65,53 @@ class VideoViewAdapter(
 
     override fun getItemCount(): Int = items.size
 
-    fun addItem(item: VideoItem) {
-        items.add(item)
-        notifyItemInserted(items.size - 1)
+    private suspend fun addItem(item: VideoItem) {
+        mutex.withLock {
+            items.add(item)
+            notifyItemInserted(items.size - 1)
+        }
     }
 
-    fun removeItem(position: Int) {
-        items.removeAt(position)
-        notifyItemRemoved(position)
+    private suspend fun removeItem(position: Int) {
+        mutex.withLock {
+            items.removeAt(position)
+            notifyItemRemoved(position)
+        }
+    }
+
+    private suspend fun replaceItem(position: Int, item: VideoItem) {
+        mutex.withLock {
+            items[position] = items[position].copy(videoTrack = item.videoTrack)
+            notifyItemChanged(position)
+        }
     }
 
     fun findAndRemoveItemByName(name: String) {
         val index = items.indexOfFirst { it.name == name }
         if (index != -1) {
-            removeItem(index)
+            CoroutineScope(Dispatchers.IO).launch {
+                withContext(Dispatchers.Main) {
+                    removeItem(index)
+                }
+            }
         }
     }
 
     fun addOrUpdateItem(item: VideoItem) {
         val index = items.indexOfFirst { it.name == item.name }
         if (index != -1) {
-            items[index] = items[index].copy(videoTrack = item.videoTrack)
-            notifyItemChanged(index)
+            CoroutineScope(Dispatchers.IO).launch {
+                withContext(Dispatchers.Main) {
+                    replaceItem(index, item)
+                }
+            }
         } else {
-            addItem(item)
-        }
 
+            CoroutineScope(Dispatchers.IO).launch {
+                withContext(Dispatchers.Main) {
+                    addItem(item)
+                }
+            }
+        }
     }
 }
