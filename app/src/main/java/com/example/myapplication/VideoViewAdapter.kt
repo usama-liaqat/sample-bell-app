@@ -19,8 +19,10 @@ data class VideoItem(
 
 )
 
-class VideoViewAdapter(private val items: MutableList<VideoItem>) :
-    RecyclerView.Adapter<VideoViewAdapter.ViewHolder>() {
+class VideoViewAdapter(
+    private val items: MutableList<VideoItem>,
+    private val rootEglBase:EglBase = EglBase.create()
+) : RecyclerView.Adapter<VideoViewAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val surfaceViewRenderer: SurfaceViewRenderer = view.findViewById(R.id.surfaceViewRenderer)
@@ -40,7 +42,7 @@ class VideoViewAdapter(private val items: MutableList<VideoItem>) :
         
         val renderer = holder.surfaceViewRenderer
         if (videoTrack != null) {
-            renderer.init(EglBase.create().eglBaseContext, null)
+            renderer.init(rootEglBase.eglBaseContext, null)
             renderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
             renderer.setMirror(item.mirror)
             renderer.setZOrderMediaOverlay(true)

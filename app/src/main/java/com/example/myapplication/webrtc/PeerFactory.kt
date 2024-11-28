@@ -1,7 +1,6 @@
 package com.example.myapplication.webrtc
 
 import android.app.Activity
-import android.util.Log
 import com.example.myapplication.Config
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -22,9 +21,10 @@ import org.webrtc.VideoTrack
 
 class PeerFactory(
     private val activity: Activity,
+    private val rootEglBase:EglBase = EglBase.create()
 ) {
 
-    private val rootEglBase:EglBase = EglBase.create()
+
     private val peerConnectionFactory: PeerConnectionFactory by lazy { buildPeerConnectionFactory() }
 
     private val iceServers: MutableList<PeerConnection.IceServer> = mutableListOf()
@@ -32,6 +32,8 @@ class PeerFactory(
     init {
         initPeerConnectionFactory()
     }
+
+    fun iceServersList(): List<PeerConnection.IceServer> = iceServers
 
 
     private fun buildPeerConnectionFactory(): PeerConnectionFactory {

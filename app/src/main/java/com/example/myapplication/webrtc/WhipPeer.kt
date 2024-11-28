@@ -24,7 +24,7 @@ class WHIPPeer(
     private val exchange: WHIPExchange,
     private val videoViewAdapter: VideoViewAdapter,
     private val factory: PeerFactory,
-
+    private val rootEglBase: EglBase = EglBase.create()
     ) {
     private val TAG = "WHIPPeer"
 
@@ -32,8 +32,6 @@ class WHIPPeer(
     private val localStreamID = UUID.randomUUID().toString()
     private val localAudioTrackID = UUID.randomUUID().toString()
     private val localVideoTrackID = UUID.randomUUID().toString()
-
-    private val rootEglBase: EglBase = EglBase.create()
 
     private val peerConnection: PeerConnection by lazy { createPeerConnection() }
 

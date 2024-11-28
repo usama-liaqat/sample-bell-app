@@ -60,6 +60,7 @@ class AdminFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
         val activity = requireActivity()
         val context = requireContext()
 
@@ -90,7 +91,7 @@ class AdminFragment : Fragment() {
                 return@setOnClickListener // Stop the method execution if input is empty
             }
             connectBell(inputText, activity)
-//            connectPeer(inputText, activity)
+            connectPeer(inputText, activity)
         }
     }
 

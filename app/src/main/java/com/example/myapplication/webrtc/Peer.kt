@@ -29,8 +29,7 @@ class Peer(
     private val factory: PeerFactory,
     private var socketExchange: SocketExchange,
     private val videoViewAdapter: VideoViewAdapter,
-
-
+    private val rootEglBase: EglBase = EglBase.create()
     ) {
 
     private val TAG = "Peer"
@@ -40,7 +39,7 @@ class Peer(
     private val localVideoTrackID = UUID.randomUUID().toString()
 
 
-    private val rootEglBase: EglBase = EglBase.create()
+
     private val peerConnection: PeerConnection by lazy { createPeerConnection() }
 
     private var localAudioTrack: AudioTrack? = null
@@ -65,7 +64,7 @@ class Peer(
 
 
     private fun createPeerConnection(): PeerConnection {
-        return factory.createPeerConnection(factory.getRTCConfig(),
+        return factory.createPeerConnection(factory.getRTCConfig(factory.iceServersList()),
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(iceCandidate: IceCandidate?) {
                     if (iceCandidate !== null) {
@@ -151,8 +150,6 @@ class Peer(
 
     fun createOffer() {
         val constraints = MediaConstraints()
-        constraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"))
-        constraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "false"))
         peerConnection.createOffer(object : SdpObserver {
             override fun onCreateSuccess(offer: SessionDescription?) {
                 Log.d(TAG, "Offer Description created")
@@ -196,8 +193,6 @@ class Peer(
 
     fun createAnswer(offer: SessionDescription) {
         val constraints = MediaConstraints()
-        constraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
-        constraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
         peerConnection.setRemoteDescription(object : SdpObserver {
             override fun onCreateSuccess(sdp: SessionDescription?) {
                 Log.e(TAG, "Remote Description create success")
@@ -298,7 +293,7 @@ class Peer(
 
     private fun addLocalTrackToView() {
         activity.runOnUiThread {
-            if (publish && localVideoTrack !== null) {
+            if (publish && localVideoTrack?.enabled() == true) {
                 val videoItem = VideoItem(
                     name = socketExchange.sid, // You can set a dynamic title
                     videoTrack = localVideoTrack, mirror = true
@@ -309,12 +304,11 @@ class Peer(
     }
 
     private fun addRemoteTrackToUI(videoTrack: VideoTrack) {
-        val videoItem = VideoItem(
-            name = id, // You can set a dynamic title
-            videoTrack = videoTrack, mirror = false
-        )
-
         activity.runOnUiThread {
+            val videoItem = VideoItem(
+                name = id, // You can set a dynamic title
+                videoTrack = videoTrack, mirror = false
+            )
             videoViewAdapter.addOrUpdateItem(videoItem)
         }
     }
