@@ -89,9 +89,9 @@ class MainActivity : AppCompatActivity() {
     private fun replaceFragment(inputText: String, radioText: String) {
         if (!(inputText.isEmpty() && radioText.isEmpty())) {
             val fragment: Fragment = when (radioText.lowercase()) {
-                "admin" -> AdminFragment.new(inputText)
-                "bell" -> BellFragment.new(inputText)
-                else -> AdminFragment.new(inputText) // Default to AdminFragment if input is unrecognized
+                "admin" -> AdminFragment.new("demo/$inputText")
+                "bell" -> BellFragment.new("demo/$inputText")
+                else -> AdminFragment.new("demo/$inputText") // Default to AdminFragment if input is unrecognized
             }
 
             val fragmentTransaction: FragmentTransaction = supportFragmentManager.beginTransaction()

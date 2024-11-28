@@ -8,18 +8,24 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
+import org.webrtc.AudioSource
+import org.webrtc.AudioTrack
 import org.webrtc.EglBase
 import org.webrtc.HardwareVideoDecoderFactory
 import org.webrtc.HardwareVideoEncoderFactory
+import org.webrtc.MediaConstraints
+import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
+import org.webrtc.VideoSource
+import org.webrtc.VideoTrack
 
 class PeerFactory(
     private val activity: Activity,
 ) {
 
     private val rootEglBase:EglBase = EglBase.create()
-    val peerConnectionFactory: PeerConnectionFactory by lazy { buildPeerConnectionFactory() }
+    private val peerConnectionFactory: PeerConnectionFactory by lazy { buildPeerConnectionFactory() }
 
     private val iceServers: MutableList<PeerConnection.IceServer> = mutableListOf()
 
@@ -116,5 +122,25 @@ class PeerFactory(
         }
 
         return iceServers
+    }
+
+    fun createVideoSource(isScreencast: Boolean): VideoSource {
+         return peerConnectionFactory.createVideoSource(isScreencast)
+    }
+
+    fun createAudioSource(constraints: MediaConstraints): AudioSource {
+         return peerConnectionFactory.createAudioSource(constraints)
+    }
+
+    fun createAudioTrack(id: String,  source: AudioSource): AudioTrack {
+        return peerConnectionFactory.createAudioTrack(id, source)
+    }
+
+     fun createVideoTrack( id:String,  source:VideoSource):VideoTrack {
+         return peerConnectionFactory.createVideoTrack(id, source)
+     }
+
+    fun createLocalMediaStream(label:String):MediaStream {
+        return peerConnectionFactory.createLocalMediaStream(label)
     }
 }

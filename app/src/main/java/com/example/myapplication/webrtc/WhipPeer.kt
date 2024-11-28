@@ -29,9 +29,9 @@ class WHIPPeer(
     private val TAG = "WHIPPeer"
 
 
-    private val LOCAL_STREAM_ID = UUID.randomUUID().toString()
-    private val LOCAL_AUDIO_TRACK_ID = UUID.randomUUID().toString()
-    private val LOCAL_VIDEO_TRACK_ID = UUID.randomUUID().toString()
+    private val localStreamID = UUID.randomUUID().toString()
+    private val localAudioTrackID = UUID.randomUUID().toString()
+    private val localVideoTrackID = UUID.randomUUID().toString()
 
     private val rootEglBase: EglBase = EglBase.create()
 
@@ -41,12 +41,16 @@ class WHIPPeer(
 
     private var localVideoTrack: VideoTrack? = null
 
-    private val localVideoSource by lazy { factory.peerConnectionFactory.createVideoSource(false) }
+    private val localVideoSource by lazy {
+        factory.createVideoSource(false)
+    }
+
     private val localAudioSource by lazy {
-        factory.peerConnectionFactory.createAudioSource(
+        factory.createAudioSource(
             MediaConstraints()
         )
     }
+
     private val pendingCandidates = arrayListOf<IceCandidate>()
 
 
@@ -68,35 +72,6 @@ class WHIPPeer(
             })
     }
 
-    private fun initPeerConnection(): PeerConnection {
-        localAudioTrack = factory.peerConnectionFactory.createAudioTrack(
-            LOCAL_AUDIO_TRACK_ID,
-            localAudioSource
-        )
-
-        localVideoTrack = factory.peerConnectionFactory.createVideoTrack(
-            LOCAL_VIDEO_TRACK_ID,
-            localVideoSource
-        )
-
-        val localStream = factory.peerConnectionFactory.createLocalMediaStream(LOCAL_STREAM_ID)
-
-        localStream.addTrack(localVideoTrack)
-        localStream.addTrack(localAudioTrack)
-
-        localVideoTrack?.setEnabled(true)
-        localAudioTrack?.setEnabled(true)
-
-        peerConnection.addTrack(localVideoTrack, listOf(LOCAL_STREAM_ID))
-        peerConnection.addTrack(localAudioTrack, listOf(LOCAL_STREAM_ID))
-
-        return peerConnection
-    }
-
-    fun connect() {
-        createOffer()
-    }
-
     private fun startCapture() {
         val surfaceTextureHelper = SurfaceTextureHelper.create(
             Thread.currentThread().name,
@@ -104,6 +79,29 @@ class WHIPPeer(
         )
         videoCapturer.initialize(surfaceTextureHelper, activity, localVideoSource.capturerObserver)
         videoCapturer.startCapture(1280, 720, 30)
+    }
+
+    private fun initPeerConnection(): PeerConnection {
+        localVideoTrack = factory.createVideoTrack(
+            localVideoTrackID,
+            localVideoSource
+        )
+        localVideoTrack?.setEnabled(true)
+        peerConnection.addTrack(localVideoTrack, listOf(localStreamID))
+
+        localAudioTrack = factory.createAudioTrack(
+            localAudioTrackID,
+            localAudioSource
+        )
+        localAudioTrack?.setEnabled(true)
+        peerConnection.addTrack(localAudioTrack, listOf(localStreamID))
+
+        return peerConnection
+    }
+
+    fun connect() {
+        addVideoToView()
+        createOffer()
     }
 
     private fun createOffer() {

@@ -36,8 +36,9 @@ class VideoViewAdapter(private val items: MutableList<VideoItem>) :
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
         holder.overlayName.text = item.name
-        val renderer = holder.surfaceViewRenderer
         val videoTrack = item.videoTrack
+        
+        val renderer = holder.surfaceViewRenderer
         if (videoTrack != null) {
             renderer.init(EglBase.create().eglBaseContext, null)
             renderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)

@@ -47,9 +47,9 @@ class Peer(
 
     private var localVideoTrack: VideoTrack? = null
 
-    private val localVideoSource by lazy { factory.peerConnectionFactory.createVideoSource(false) }
+    private val localVideoSource by lazy { factory.createVideoSource(false) }
     private val localAudioSource by lazy {
-        factory.peerConnectionFactory.createAudioSource(
+        factory.createAudioSource(
             MediaConstraints()
         )
     }
@@ -64,7 +64,7 @@ class Peer(
 
 
     private fun createPeerConnection(): PeerConnection {
-        return factory.peerConnectionFactory.createPeerConnection(factory.getRTCConfig(),
+        return factory.createPeerConnection(factory.getRTCConfig(),
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(iceCandidate: IceCandidate?) {
                     if (iceCandidate !== null) {
@@ -130,17 +130,17 @@ class Peer(
 
 
     private fun initTracks() {
-        localAudioTrack = factory.peerConnectionFactory.createAudioTrack(
+        localAudioTrack = factory.createAudioTrack(
             LOCAL_AUDIO_TRACK_ID,
             localAudioSource
         )
 
-        localVideoTrack = factory.peerConnectionFactory.createVideoTrack(
+        localVideoTrack = factory.createVideoTrack(
             LOCAL_VIDEO_TRACK_ID,
             localVideoSource
         )
 
-        val localStream = factory.peerConnectionFactory.createLocalMediaStream(LOCAL_STREAM_ID)
+        val localStream = factory.createLocalMediaStream(LOCAL_STREAM_ID)
 
         localStream.addTrack(localVideoTrack)
         localStream.addTrack(localAudioTrack)

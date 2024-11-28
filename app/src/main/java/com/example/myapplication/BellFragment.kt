@@ -92,7 +92,6 @@ class BellFragment : Fragment() {
             whipPeer =
                 WHIPPeer(activity, videoCapturer, whipExchange, videoViewAdapter, peerFactory)
             whipPeer?.connect()
-            whipPeer?.addVideoToView()
         }
     }
 
