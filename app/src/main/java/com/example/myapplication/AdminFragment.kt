@@ -1,6 +1,7 @@
 package com.example.myapplication
 
 import android.app.Activity
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -14,11 +15,16 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.exchange.SocketExchange
 import com.example.myapplication.exchange.WHEPExchange
+import com.example.myapplication.webrtc.Peer
 import com.example.myapplication.webrtc.PeerFactory
 import com.example.myapplication.webrtc.WHEPPeer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import org.webrtc.Camera2Enumerator
+import org.webrtc.IceCandidate
+import org.webrtc.SessionDescription
+import org.webrtc.VideoCapturer
 
 class AdminFragment : Fragment() {
     private val TAG = "AdminFragment"
@@ -37,7 +43,12 @@ class AdminFragment : Fragment() {
     private lateinit var callButton: Button
     private lateinit var callInput: EditText
 
+    private lateinit var videoCapturer: VideoCapturer
+
+
     private lateinit var peerFactory: PeerFactory
+    private val peers = mutableMapOf<String, Peer>()
+
 
 
     override fun onCreateView(
@@ -58,6 +69,7 @@ class AdminFragment : Fragment() {
         videoViewAdapter = VideoViewAdapter(videoItems)
         recyclerView.layoutManager = LinearLayoutManager(context)
         recyclerView.adapter = videoViewAdapter
+        videoCapturer = getVideoCapturer(activity)
 
 
         peerFactory = PeerFactory(activity)
@@ -78,6 +90,7 @@ class AdminFragment : Fragment() {
                 return@setOnClickListener // Stop the method execution if input is empty
             }
             connectBell(inputText, activity)
+            connectPeer(inputText, activity)
         }
     }
 
@@ -91,6 +104,13 @@ class AdminFragment : Fragment() {
         whepExchange = WHEPExchange(Config.LIVE_BASE_URL, bellId)
         whepPeer = WHEPPeer(activity, videoViewAdapter, whepExchange!!, peerFactory)
         whepPeer!!.connect()
+    }
+
+    private fun connectPeer(bellId: String, activity: Activity) {
+        peers[bellId].let { it?.close() }
+        val peer = Peer(bellId,true,activity,videoCapturer, peerFactory, socketExchange, videoViewAdapter)
+        peer.createOffer()
+        peers[bellId] = peer
     }
 
     private fun connection(sid: String) {
@@ -115,8 +135,29 @@ class AdminFragment : Fragment() {
         }
     }
 
-    private fun onSocketAnswer(data: JSONObject) {}
-    private fun onSocketCandidate(data: JSONObject) {}
+    private fun onSocketAnswer(data: JSONObject) {
+        val sdp = data.getString("sdp")
+        val from = data.getString("from")
+        val answer  = SessionDescription(SessionDescription.Type.ANSWER, sdp)
+        peers[from].let { it?.addRemoteAnswer(answer) }
+    }
+
+    private fun onSocketCandidate(data: JSONObject) {
+        val from = data.getString("from")
+        val candidate = data.getString("candidate")
+        val sdpMLineIndex = data.getInt("sdpMLineIndex")
+        val sdpMid = data.getString("sdpMid")
+
+        val iceCandidate = IceCandidate(
+            sdpMid,
+            sdpMLineIndex,
+            candidate
+        )
+        peers[from].let { it?.addIceCandidate(iceCandidate) }
+    }
+    private fun getVideoCapturer(context: Context) = Camera2Enumerator(context).run {
+        createCapturer(deviceNames[1], null)
+    }
 
 
     companion object {

@@ -118,7 +118,7 @@ class BellFragment : Fragment() {
         val from = data.getString("from")
         val offer  =SessionDescription(SessionDescription.Type.OFFER, sdp)
         peers[from].let { it?.close() }
-        val peer = Peer(from,requireActivity(),videoCapturer, peerFactory, socketExchange, videoViewAdapter)
+        val peer = Peer(from,false,requireActivity(),videoCapturer, peerFactory, socketExchange, videoViewAdapter)
         peer.createAnswer(offer)
         peers[from] = peer
     }
